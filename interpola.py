@@ -33,7 +33,7 @@ def interpola():
     linx = np.linspace(config['xmin'], config['xmax'], widthx)
     liny = np.linspace(config['ymin'], config['ymax'], widthy)
     gridx, gridy = np.meshgrid(linx, liny)
-    gridxy = zip(np.ravel(gridx), np.ravel(gridy))
+    gridxy = np.array(zip(np.ravel(gridx), np.ravel(gridy)))
 
     # hitung ellipsoid masing-masing
     for datum in data:
@@ -41,11 +41,11 @@ def interpola():
         rv = float(height)/2
         mid = datum['z1']-rv
         rh = config['buffersize']*rv
-        zs = np.array([ellipsoid.calc_z(datum['x'], datum['y'], rh, rv, x, y, config['blocksize']) for x, y in gridxy]) # lama di sini, harusnya bisa vectorized
-        linz_top = mid+zs
-        linz_bottom = mid-zs
-        datum['surface_top'] = linz_top.reshape(gridx.shape)
-        datum['surface_bottom'] = linz_bottom.reshape(gridx.shape)
+        z = ellipsoid.calc_z_vectorized(datum['x'], datum['y'], rh, rv, gridxy)
+        gridz = z.reshape(gridx.shape)
+        zerosides(gridz)
+        datum['surface_top'] = mid+gridz
+        datum['surface_bottom'] = mid-gridz
 
     # interpolasi alias gabungin weh
     surface_top = np.full(gridx.shape, np.nan)
@@ -65,27 +65,22 @@ def interpola():
     ax.set_zlim(0, 50) # supaya skalanya samar
     plt.show()
 
-def nyoba():
-    kiri, kanan = -15, 15
-    rh, rv = 10, 5
-    width = 200
-    blocksize = float(kanan-kiri)/width
+def zerosides(surface):
+    left = np.roll(surface, 1, axis=1)
+    left[:, 0] = 0
+    right = np.roll(surface, -1, axis=1)
+    right[:, -1] = 0
+    top = np.roll(surface, 1, axis=0)
+    top[0, :] = 0
+    bottom = np.roll(surface, -1, axis=0)
+    bottom[-1, :] = 0
 
-    ax = plt.gca(projection='3d')
-    linx = np.linspace(kiri, kanan, width)
-    liny = np.linspace(kiri, kanan, width)
-    gridx, gridy = np.meshgrid(linx, liny)
-
-    linz = np.array([ellipsoid.calc_z(1, 1, rh, rv, x, y, blocksize) for x, y in zip(np.ravel(gridx), np.ravel(gridy))])
-    gridz = linz.reshape(gridx.shape)
-    ax.plot_surface(gridx, gridy, gridz)
-
-    linz_minus = np.array([-ellipsoid.calc_z(1, 1, rh, rv, x, y, blocksize) for x, y in zip(np.ravel(gridx), np.ravel(gridy))])
-    gridz_minus = linz_minus.reshape(gridx.shape)
-    ax.plot_surface(gridx, gridy, gridz_minus)
-
-    ax.set_zlim(kiri, kanan) # supaya keliatan elips
-    plt.show()
+    # set 0 yang pinggiran
+    nonnan = surface==surface
+    surface[nonnan*(left!=left)] = 0
+    surface[nonnan*(right!=right)] = 0
+    surface[nonnan*(top!=top)] = 0
+    surface[nonnan*(bottom!=bottom)] = 0
 
 if __name__ == '__main__':
     interpola()
