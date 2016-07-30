@@ -6,6 +6,8 @@ import pandas as pd
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 from scipy.interpolate import LinearNDInterpolator, SmoothBivariateSpline
+from scipy.spatial.distance import cdist
+from numpy.linalg import norm
 
 def showScatterplot(x, y, z):
     ax = plt.figure().gca(projection='3d')
@@ -37,46 +39,88 @@ def showLayers(wells, lays_uniq):
 def getBores(path='data/Imod Jakarta'):
     # read data
     raw = open(os.path.join(path, 'Boreholes_Jakarta.ipf')).read().split('\n')[10:-1]
-    wel = []
-    lay = []
-    lay_uniq = []
-    wid = []
-    lid = []
-    luid = []
-    for r in raw:
-        x, y, name, z1, z2 = r.split(',')[:5]
-        wel.append([float(x), float(y), float(z1), float(z2)])
-        nim = name.split('\\')[-1]
-        wid.append(nim)
-        d = open(os.path.join(path, name.replace('\\', '/')+'.txt')).read().split('\n')[4:-1]
-        layer = []
-        types = []
-        for l in d:
-            z, t = l.split(',')
-            lay.append([float(z), t])
-            layer.append(float(z))
-            types.append(t)
-            lid.append(nim)
-        for n,t in enumerate(types):
-            types[n] = "fer" if t != "clay" else "tard"
-        s = 0
-        for n in range(len(layer)):
-            if n+1 < len(layer):
-                if types[n+1] != types[n]:
-                    lay_uniq.append([layer[n-s], layer[n+1], types[n]])
-                    luid.append(nim)
-                    s = 0
-                else:
-                    s += 1
-            else:
-                lay_uniq.append([layer[n-s], layer[n], types[n]])
-                luid.append(nim)
-        
-    wells = pd.DataFrame(wel, index=wid, columns=['x', 'y', 'surface', 'bottom'])
-    lays = pd.DataFrame(lay, index=lid, columns=['z', 'type'])
-    lays_uniq = pd.DataFrame(lay_uniq, index=luid, columns=['z1', 'z2', 'type'])
 
-    return wells, lays, lays_uniq
+    wells = []
+    layers = []
+    for r in raw:
+        x, y, name, top, btm = r.split(',')[:5]
+        wname = name.split('\\')[-1]
+        wells.append([wname, float(x), float(y)])
+
+        well = open(os.path.join(path, name.replace('\\','/')+'.txt')).read().split('\n')[4:-1]
+        for layer in well:
+            depth, soil = layer.split(',')
+            layers.append([wname, float(depth), soil])
+
+    wells = pd.DataFrame(wells, columns=['name', 'x', 'y']).set_index('name')
+    layers = pd.DataFrame(layers, columns=['name', 'top', 'soil']).set_index('name')
+    df = pd.concat((wells, layers), axis=1, join='inner')
+    # map soil types to aquafer/tard
+    df['fer'] = df.soil.str.startswith('sand').astype(np.int8)
+    # get depth for all aquafer layers
+    dfg = df.groupby(df.index)
+    df['dep'] = dfg.top.transform(lambda x: x.diff())
+    # concatenate adjacent layers of the same type
+    df['lay'] = dfg.fer.transform(lambda x: (x.diff(1).abs() == 1).cumsum())
+    # get centers and radius of each layer
+    points = df.loc[df.fer == 1, ['lay','x','y','top','dep']]
+    pg = points.groupby([points.index, points.lay])
+    points['z'] = pg.top.transform(lambda x: x.mean())
+    points['r'] = pg.dep.transform(lambda x: 0.5*np.abs(x.sum()))
+    print('points:')
+    print(points.head())
+    points = points.groupby([points.index, points.lay])['x','y','z','r'].first()
+
+    return df, points
+
+def getGroups(p, f=10):
+    # get xy coordinates of wells and calculate distances
+    p.x = p.x - p.x.min()
+    p.y = p.y - p.y.min()
+    xy = p.groupby(level=0)[['x','y']].first()
+    print(xy.head())
+    dxy = cdist(xy.values, xy.values)
+
+    # get max radii of wells and calculate needed distance to overcome
+    # constant 'f' is the multiplication factor of the radius
+    r = f*p.groupby(level=0).r.max().values
+    rr = np.add.outer(r, r.T)
+
+    # find wells that potentially intersect, remove redundant and self
+    d = dxy < rr
+    np.fill_diagonal(d, False)
+    wi = np.argwhere(np.triu(d)).tolist()
+
+    # dfs to find connected wells
+    i = []
+    while wi:
+        stack = [wi[0]]
+        count = [wi[0]]
+        while stack:
+            w = stack.pop()
+            wi.remove(w)
+            if len(wi) == 0: break
+            d = ((w - np.array(wi)) == 0).T
+            ns = np.argwhere(np.logical_xor(d[0], d[1])).flatten().tolist()
+            for n in ns:
+                if wi[n] not in stack:
+                    stack.append(wi[n])
+                    count.append(wi[n])
+        i.append(list(set(np.array(count).flatten())))
+
+    # for each group, try to find where they connect
+    for group in i:
+        g = xy.iloc[group]
+        print(p.loc[g.index.tolist()])
+
+    """
+    xyz = p.loc[:,['x','y','z']].values
+
+    uxy = [1.,1.,0.]/norm([1.,1.,0.])
+    ang = cdist(xyz, xyz, lambda u, v: np.clip(np.dot((u-v)/norm(u-v), uxy), -1, 1))
+    dist = cdist(xyz, xyz, 'euclidean')
+    cost = np.abs(np.nan_to_num(ang*dist/dist.max()))
+    """
 
 def getWells(filename):
     data = open(filename).read().replace('\r','').split('\n')
