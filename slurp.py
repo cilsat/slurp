@@ -73,17 +73,18 @@ def getBores(path='data/Imod Jakarta'):
 
     return df, points
 
-def getGroups(p, f=10):
+def getGroups(dfp, f=10):
     # get xy coordinates of wells and calculate distances
-    p.x = p.x - p.x.min()
-    p.y = p.y - p.y.min()
-    xy = p.groupby(level=0)[['x','y']].first()
-    print(xy.head())
+    p = dfp.copy()
+    p.x -= p.x.min()
+    p.y -= p.y.min()
+    pg = p.groupby(level=0)
+    xy = pg[['x','y']].first()
     dxy = cdist(xy.values, xy.values)
 
     # get max radii of wells and calculate needed distance to overcome
     # constant 'f' is the multiplication factor of the radius
-    r = f*p.groupby(level=0).r.max().values
+    r = f*pg.r.max().values
     rr = np.add.outer(r, r.T)
 
     # find wells that potentially intersect, remove redundant and self
@@ -106,12 +107,25 @@ def getGroups(p, f=10):
                 if wi[n] not in stack:
                     stack.append(wi[n])
                     count.append(wi[n])
-        i.append(list(set(np.array(count).flatten())))
+        i.append([count, list(set(np.array(count).flatten()))])
 
-    # for each group, try to find where they connect
+    # for each group, assume nodes connect at the largest aquafir
+    dfgraph = []
+    adj = {}
     for group in i:
-        g = xy.iloc[group]
-        print(p.loc[g.index.tolist()])
+        order, nodes = group
+        dfnodes = p.loc[p.loc[xy.iloc[nodes].index.tolist()].groupby(level=0).r.idxmax()]
+        dfnodes['lbl'] = nodes
+        dfgraph.append(dfnodes)
+        for i in nodes:
+            adj[i] = []
+        for n in order:
+            a, b = n
+            adj[a].append(b)
+            adj[b].append(a)
+
+    dfgraph = pd.concat(dfgraph)
+    return dfgraph, adj
 
     """
     xyz = p.loc[:,['x','y','z']].values
