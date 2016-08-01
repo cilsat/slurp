@@ -1,25 +1,38 @@
 import sys
 import time
+import traceback
 from PyQt4 import QtGui
 from PyQt4.QtCore import QThread, SIGNAL
 
 import design
+from config import config
+import slurp
+from interpolator import Interpolator
+from writer import Writer
 
 class ProgramRunner(QThread):
-
     def run(self):
-        self.emit(SIGNAL('logging(QString)'), 'Reading files...')
-        time.sleep(1)
-        self.emit(SIGNAL('logging(QString)'), ' [DONE]\n')
-        self.emit(SIGNAL('logging(QString)'), 'Processing...')
-        time.sleep(3)
-        self.emit(SIGNAL('logging(QString)'), ' [FAILED]\n')
-        self.emit(SIGNAL('logging(QString)'), '\nERROR: dum dumdum dum\n')
-        time.sleep(1)
+        log = lambda message: self.emit(SIGNAL('logging(QString)'), message)
+        writer = Writer(self.text_output)
+
+        try:
+            log('Reading files...')
+            # w, p = slurp.getBores(self.text_input)
+            w, p = slurp.getBores()
+            p = p[p['r']==p['r']] # remove points with r is NaN
+            df, adj = slurp.getGroups(p, config['buffersize'])
+            log(' Done\n')
+
+            interpolator = Interpolator(p, df, adj, writer, log)
+            interpolator.interpolate()
+            log('\n[DONE]')
+        except Exception as e:
+            log('\n\n[ERROR] {}'.format(e))
+            traceback.print_exc()
+
         self.emit(SIGNAL('finish_program()'))
 
 class Window(QtGui.QMainWindow, design.Ui_MainWindow):
-
     def __init__(self, parent=None):
         super(self.__class__, self).__init__()
         self.setupUi(self)
@@ -27,7 +40,7 @@ class Window(QtGui.QMainWindow, design.Ui_MainWindow):
         self.button_input.clicked.connect(self.browse_input)
         self.button_output.clicked.connect(self.browse_output)
         self.button_run.clicked.connect(self.run_program)
-        # self.button_run.setEnabled(True)
+        self.button_run.setEnabled(True) # DEBUG
 
     def browse_input(self):
         file = QtGui.QFileDialog.getOpenFileName(self, 'Open File', '', 'IPF (*.ipf)')
@@ -53,6 +66,8 @@ class Window(QtGui.QMainWindow, design.Ui_MainWindow):
             button.setEnabled(False)
 
         self.program_runner = ProgramRunner()
+        self.program_runner.text_input = self.text_input.text()
+        self.program_runner.text_output = self.text_output.text()
         self.connect(self.program_runner, SIGNAL('logging(QString)'), self.logging)
         self.connect(self.program_runner, SIGNAL('finish_program()'), self.finish_program)
         self.program_runner.start()
