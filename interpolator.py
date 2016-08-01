@@ -14,7 +14,32 @@ class Interpolator:
 
     def interpolate(self):
         self.log('Preparing data...')
-        self.prepare()
+
+        gutter = np.ceil(self.p['r'].max()*config['buffersize'])
+        xmin, xmax = self.p['x'].min(), self.p['x'].max()
+        ymin, ymax = self.p['y'].min(), self.p['y'].max()
+
+        self.df['x'] += xmin
+        self.df['y'] += xmax
+
+        xllcorner = np.floor(xmin)-gutter
+        yllcorner = np.floor(ymin)-gutter
+        xhrcorner = np.ceil(xmax)+gutter
+        yhrcorner = np.ceil(ymax)+gutter
+
+        widthx = float(xhrcorner-xllcorner)/config['cellsize']
+        widthy = float(yhrcorner-yllcorner)/config['cellsize']
+        linx = np.linspace(xllcorner, xhrcorner, widthx)
+        liny = np.linspace(yllcorner, yhrcorner, widthy)
+        gridx, gridy = np.meshgrid(linx, liny)
+        self.gridxy = np.array(zip(np.ravel(gridx), np.ravel(gridy)))
+        self.gridx_shape = gridx.shape
+
+        self.writer.xllcorner = xllcorner
+        self.writer.yllcorner = yllcorner
+        self.writer.ncols = linx.shape[0]
+        self.writer.nrows = liny.shape[0]
+
         self.log(' Done\n')
 
         writers = []
@@ -25,22 +50,22 @@ class Interpolator:
         def write(surface):
             self.writer.write(surface)
 
-        # grouping
-        self.is_processed = [False]*(self.df['lbl'].max()+1)
-        for i in self.adj:
-            counter += 1
-            self.log('Processing {} of {}...'.format(counter, total))
-            if not self.is_processed[i]:
-                surface_top = np.full(self.gridx_shape, np.nan)
-                surface_bottom = np.full(self.gridx_shape, np.nan)
-                self.grouping(i, surface_top, surface_bottom)
+        # # groups
+        # self.is_processed = [False]*(self.df['lbl'].max()+1)
+        # for i in self.adj:
+        #     counter += 1
+        #     self.log('Processing {} of {}...'.format(counter, total))
+        #     if not self.is_processed[i]:
+        #         surface_top = np.full(self.gridx_shape, np.nan)
+        #         surface_bottom = np.full(self.gridx_shape, np.nan)
+        #         self.grouping(i, surface_top, surface_bottom)
 
-                thread = threading.Thread(target=write, args=({'top':surface_top, 'bottom':surface_bottom}, ))
-                writers.append(thread)
-                thread.start()
-            self.log(' Done\n')
+        #         thread = threading.Thread(target=write, args=({'top':surface_top, 'bottom':surface_bottom}, ))
+        #         thread.start()
+        #         writers.append(thread)
+        #     self.log(' Done\n')
 
-        # individual
+        # individuals
         for i in range(0, len(nondf)):
             counter += 1
             self.log('Processing {} of {}...'.format(counter, total))
@@ -51,28 +76,14 @@ class Interpolator:
             surface_bottom = item['z']-gridz
 
             thread = threading.Thread(target=write, args=({'top':surface_top, 'bottom':surface_bottom}, ))
-            writers.append(thread)
             thread.start()
+            writers.append(thread)
 
             self.log(' Done\n')
+            break # DEBUG
 
         # wait for ascii writer
         [thread.join() for thread in writers]
-
-    def prepare(self):
-        gutter = np.ceil(self.p['r'].max()*config['buffersize'])
-        xmin = np.floor(self.p['x'].min())-gutter
-        xmax = np.ceil(self.p['x'].max())+gutter
-        ymin = np.floor(self.p['y'].min())-gutter
-        ymax = np.ceil(self.p['y'].max())+gutter
-
-        widthx = float(xmax-xmin)/config['blocksize']
-        widthy = float(ymax-ymin)/config['blocksize']
-        linx = np.linspace(xmin, xmax, widthx)
-        liny = np.linspace(ymin, ymax, widthy)
-        gridx, gridy = np.meshgrid(linx, liny)
-        self.gridxy = np.array(zip(np.ravel(gridx), np.ravel(gridy)))
-        self.gridx_shape = gridx.shape
 
     def grouping(self, i, surface_top, surface_bottom):
         self.is_processed[i] = True
@@ -89,40 +100,45 @@ class Interpolator:
                 self.grouping(j, surface_top, surface_bottom)
 
     def make_gridz(self, item):
-        rv = item['r']
-        rh = config['buffersize']*rv
-        z = ellipsoid.calc_z(item['x'], item['y'], rh, rv, self.gridxy)
+        z = ellipsoid.calc_z(item['x'], item['y'], item['rh'], item['r'], self.gridxy)
         gridz = z.reshape(self.gridx_shape)
-        self.zerosides(gridz)
+
+        left = np.roll(gridz, 1, axis=1)
+        left[:, 0] = np.nan
+        right = np.roll(gridz, -1, axis=1)
+        right[:, -1] = np.nan
+        top = np.roll(gridz, 1, axis=0)
+        top[0, :] = np.nan
+        bottom = np.roll(gridz, -1, axis=0)
+        bottom[-1, :] = np.nan
+
+        nans = gridz!=gridz
+        gridz[nans*(left==left)] = 0
+        gridz[nans*(right==right)] = 0
+        gridz[nans*(top==top)] = 0
+        gridz[nans*(bottom==bottom)] = 0
+
         return gridz
-
-    def zerosides(self, surface):
-        left = np.roll(surface, 1, axis=1)
-        left[:, 0] = 0
-        right = np.roll(surface, -1, axis=1)
-        right[:, -1] = 0
-        top = np.roll(surface, 1, axis=0)
-        top[0, :] = 0
-        bottom = np.roll(surface, -1, axis=0)
-        bottom[-1, :] = 0
-
-        # set 0 yang pinggiran
-        nonnan = surface==surface
-        surface[nonnan*(left!=left)] = 0
-        surface[nonnan*(right!=right)] = 0
-        surface[nonnan*(top!=top)] = 0
-        surface[nonnan*(bottom!=bottom)] = 0
 
 def test():
     import sys
     import slurp
     from writer import Writer
+
     w, p = slurp.getBores()
     p = p[p['r']==p['r']] # remove points with r is NaN
+    p['rh'] = p['r']*config['buffersize'] # r horizontal
+
+    # set minimum r horizontal
+    rh_min = 1.6*config['cellsize']
+    p.set_value(p['rh'] < rh_min, 'rh', rh_min)
+
     df, adj = slurp.getGroups(p, config['buffersize'])
-    writer = Writer('folder/output')
+
+    writer = Writer('data/sampah')
     log = lambda message: sys.stdout.write(message)
     interpolator = Interpolator(p, df, adj, writer, log)
+
     return interpolator.interpolate()
 
 if __name__ == '__main__':

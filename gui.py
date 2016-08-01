@@ -20,6 +20,10 @@ class ProgramRunner(QThread):
             # w, p = slurp.getBores(self.text_input)
             w, p = slurp.getBores()
             p = p[p['r']==p['r']] # remove points with r is NaN
+            p['rh'] = p['r']*config['buffersize'] # r horizontal
+            # set minimum r horizontal
+            rh_min = 1.6*config['cellsize']
+            p.set_value(p['rh'] < rh_min, 'rh', rh_min)
             df, adj = slurp.getGroups(p, config['buffersize'])
             log(' Done\n')
 

@@ -1,4 +1,5 @@
 config = {
     'buffersize': 10, # diameter/height
-    'blocksize': 25, # ascii block size
+    'cellsize': 25, # ascii cell size
+    'nodata_value': -9999, # for NODATA_value in ascii file
 }
