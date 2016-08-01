@@ -62,7 +62,7 @@ class Window(QtGui.QMainWindow, design.Ui_MainWindow):
         self.enable_button_run()
 
     def enable_button_run(self):
-        if self.text_input.text()+self.text_output.text() != '':
+        if self.text_input.text() != '' and self.text_output.text() != '':
             self.button_run.setEnabled(True)
         else:
             self.button_run.setEnabled(False)
