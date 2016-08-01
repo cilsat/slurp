@@ -35,10 +35,7 @@ class Interpolator:
         self.gridxy = np.array(zip(np.ravel(gridx), np.ravel(gridy)))
         self.gridx_shape = gridx.shape
 
-        self.writer.xllcorner = xllcorner
-        self.writer.yllcorner = yllcorner
-        self.writer.ncols = linx.shape[0]
-        self.writer.nrows = liny.shape[0]
+        self.writer.create_header(linx.shape[0], liny.shape[0], xllcorner, yllcorner)
 
         self.log(' Done\n')
 
