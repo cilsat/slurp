@@ -36,9 +36,10 @@ def showLayers(wells, lays_uniq):
     ax.scatter(x, y, z2, c='r')
     plt.show()
 
-def getBores(path='data/Imod Jakarta'):
+def getBores(file='data/Imod Jakarta/Boreholes_Jakarta.ipf'):
     # read data
-    raw = open(os.path.join(path, 'Boreholes_Jakarta.ipf')).read().split('\n')[10:-1]
+    path = os.path.dirname(file)
+    raw = open(file).read().split('\n')[10:-1]
 
     wells = []
     layers = []
@@ -175,7 +176,7 @@ def readConf(conf):
         f = open(conf)
     except:
         print("Could not find slurp.conf file: using default config")
-    
+
     if f:
         f = f.read().split('\n')
 

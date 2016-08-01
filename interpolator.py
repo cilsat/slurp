@@ -50,20 +50,20 @@ class Interpolator:
         def write(surface):
             self.writer.write(surface)
 
-        # # groups
-        # self.is_processed = [False]*(self.df['lbl'].max()+1)
-        # for i in self.adj:
-        #     counter += 1
-        #     self.log('Processing {} of {}...'.format(counter, total))
-        #     if not self.is_processed[i]:
-        #         surface_top = np.full(self.gridx_shape, np.nan)
-        #         surface_bottom = np.full(self.gridx_shape, np.nan)
-        #         self.grouping(i, surface_top, surface_bottom)
+        # groups
+        self.is_processed = [False]*(self.df['lbl'].max()+1)
+        for i in self.adj:
+            counter += 1
+            self.log('Processing {} of {}...'.format(counter, total))
+            if not self.is_processed[i]:
+                surface_top = np.full(self.gridx_shape, np.nan)
+                surface_bottom = np.full(self.gridx_shape, np.nan)
+                self.grouping(i, surface_top, surface_bottom)
 
-        #         thread = threading.Thread(target=write, args=({'top':surface_top, 'bottom':surface_bottom}, ))
-        #         thread.start()
-        #         writers.append(thread)
-        #     self.log(' Done\n')
+                thread = threading.Thread(target=write, args=({'top':surface_top, 'bottom':surface_bottom}, ))
+                thread.start()
+                writers.append(thread)
+            self.log(' Done\n')
 
         # individuals
         for i in range(0, len(nondf)):
@@ -80,9 +80,9 @@ class Interpolator:
             writers.append(thread)
 
             self.log(' Done\n')
-            break # DEBUG
 
         # wait for ascii writer
+        self.log('Writing files...')
         [thread.join() for thread in writers]
 
     def grouping(self, i, surface_top, surface_bottom):

@@ -13,22 +13,26 @@ from writer import Writer
 class ProgramRunner(QThread):
     def run(self):
         log = lambda message: self.emit(SIGNAL('logging(QString)'), message)
-        writer = Writer(self.text_output)
+        writer = Writer(str(self.text_output))
 
         try:
             log('Reading files...')
-            # w, p = slurp.getBores(self.text_input)
-            w, p = slurp.getBores()
+
+            w, p = slurp.getBores(str(self.text_input))
             p = p[p['r']==p['r']] # remove points with r is NaN
             p['rh'] = p['r']*config['buffersize'] # r horizontal
+
             # set minimum r horizontal
             rh_min = 1.6*config['cellsize']
             p.set_value(p['rh'] < rh_min, 'rh', rh_min)
+
             df, adj = slurp.getGroups(p, config['buffersize'])
+
             log(' Done\n')
 
             interpolator = Interpolator(p, df, adj, writer, log)
             interpolator.interpolate()
+
             log('\n[DONE]')
         except Exception as e:
             log('\n\n[ERROR] {}'.format(e))
@@ -44,7 +48,6 @@ class Window(QtGui.QMainWindow, design.Ui_MainWindow):
         self.button_input.clicked.connect(self.browse_input)
         self.button_output.clicked.connect(self.browse_output)
         self.button_run.clicked.connect(self.run_program)
-        self.button_run.setEnabled(True) # DEBUG
 
     def browse_input(self):
         file = QtGui.QFileDialog.getOpenFileName(self, 'Open File', '', 'IPF (*.ipf)')

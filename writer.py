@@ -24,5 +24,5 @@ class Writer:
             grid[grid!=grid] = config['nodata_value']
             path = os.path.join(self.folder, '{}-{}.asc'.format(name, jenis))
             with open(path, 'w') as f:
-                np.savetxt(f, surface['top'], fmt='%.6g', delimiter=' ', newline='\r\n', header=header, comments='')
+                np.savetxt(f, grid, fmt='%.6g', delimiter=' ', newline='\r\n', header=header, comments='')
 
