@@ -5,7 +5,7 @@ from PyQt4 import QtGui
 from PyQt4.QtCore import QThread, SIGNAL
 
 import design
-from config import config
+import config
 import slurp
 from interpolator import Interpolator
 from writer import Writer
@@ -18,15 +18,17 @@ class ProgramRunner(QThread):
         try:
             log('Reading files...')
 
+            config.parse()
+
             w, p = slurp.getBores(str(self.text_input))
             p.dropna(inplace=True)
-            p['rh'] = p['r']*config['buffersize'] # r horizontal
+            p['rh'] = p['r']*config.config['buffersize'] # r horizontal
 
             # set minimum r horizontal
-            rh_min = 1.6*config['cellsize']
+            rh_min = 1.6*config.config['cellsize']
             p.set_value(p['rh'] < rh_min, 'rh', rh_min)
 
-            df, adj = slurp.getGroups(p, config['buffersize'])
+            df, adj = slurp.getGroups(p, config.config['buffersize'])
             df['x'] += p['x'].min()
             df['y'] += p['y'].min()
 
