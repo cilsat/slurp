@@ -27,6 +27,8 @@ class ProgramRunner(QThread):
             p.set_value(p['rh'] < rh_min, 'rh', rh_min)
 
             df, adj = slurp.getGroups(p, config['buffersize'])
+            df['x'] += p['x'].min()
+            df['y'] += p['y'].min()
 
             log(' Done\n')
 
