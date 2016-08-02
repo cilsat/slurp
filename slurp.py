@@ -74,7 +74,47 @@ def getBores(file='data/Imod Jakarta/Boreholes_Jakarta.ipf'):
 
     return df, points
 
-def getGroups(dfp, f=10):
+def getGroupies(dfp, grad=1.0, f=10):
+    p = dfp.copy()
+    xy = p[['x','y']]
+    z = p.z.values
+    r = p.r.values
+
+    # xy distance
+    dxy = cdist(xy.values, xy.values)
+    # z difference
+    dz = np.subtract.outer(z, z.T)
+    # sum of radii
+    sr = np.add.outer(r, r.T)
+    # gradient between points
+    gxyz = dz/dxy
+    # point pairs for which gradient less than max specified and distance less
+    # than sum of radii times some multiple
+    d = (np.abs(gxyz) < grad)*(dxy < f*sr)
+    np.fill_diagonal(d, False)
+    wi = np.argwhere(np.triu(d)).tolist()
+
+    # dfs to find connected wells
+    i = []
+    while wi:
+        stack = [wi[0]]
+        count = [wi[0]]
+        while stack:
+            w = stack.pop()
+            wi.remove(w)
+            if len(wi) == 0: break
+            d = ((w - np.array(wi)) == 0).T
+            ns = np.argwhere(np.logical_xor(d[0], d[1])).flatten().tolist()
+            for n in ns:
+                if wi[n] not in stack:
+                    stack.append(wi[n])
+                    count.append(wi[n])
+        i.append([count, list(set(np.array(count).flatten()))])
+
+    return i
+
+"""
+def _getGroups(dfp, grad=2.0, f=10):
     # get xy coordinates of wells and calculate distances
     p = dfp.copy()
     p.x -= p.x.min()
@@ -126,16 +166,13 @@ def getGroups(dfp, f=10):
             adj[b].append(a)
 
     dfgraph = pd.concat(dfgraph)
+    xy = dfgraph[['x','y']].values
+    dxy = cdist(xy, xy)
+    z = dfgraph.z.values
+    dz = np.subtract.outer(z, z.T)
+    gxyz = dz/dxy
     return dfgraph, adj
-
-    """
-    xyz = p.loc[:,['x','y','z']].values
-
-    uxy = [1.,1.,0.]/norm([1.,1.,0.])
-    ang = cdist(xyz, xyz, lambda u, v: np.clip(np.dot((u-v)/norm(u-v), uxy), -1, 1))
-    dist = cdist(xyz, xyz, 'euclidean')
-    cost = np.abs(np.nan_to_num(ang*dist/dist.max()))
-    """
+"""
 
 def getWells(filename):
     data = open(filename).read().replace('\r','').split('\n')
