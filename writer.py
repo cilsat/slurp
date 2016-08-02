@@ -14,10 +14,10 @@ class Writer:
 
         header =  'ncols         {}\r\n'.format(ncols)
         header += 'nrows         {}\r\n'.format(nrows)
-        header += 'xllcorner     {}\r\n'.format(xllcorner)
-        header += 'yllcorner     {}\r\n'.format(yllcorner)
-        header += 'cellsize      {}\r\n'.format(config['cellsize'])
-        header += 'NODATA_value  {}'.format(config['nodata_value'])
+        header += 'xllcorner     {:.12g}\r\n'.format(xllcorner)
+        header += 'yllcorner     {:.12g}\r\n'.format(yllcorner)
+        header += 'cellsize      {:.12g}\r\n'.format(config['cellsize'])
+        header += 'NODATA_value  {:.12g}'.format(config['nodata_value'])
 
         for jenis in ['top', 'bottom']:
             grid = surface[jenis]
