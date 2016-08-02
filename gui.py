@@ -19,7 +19,7 @@ class ProgramRunner(QThread):
             log('Reading files...')
 
             w, p = slurp.getBores(str(self.text_input))
-            p = p[p['r']==p['r']] # remove points with r is NaN
+            p.dropna(inplace=True)
             p['rh'] = p['r']*config['buffersize'] # r horizontal
 
             # set minimum r horizontal
