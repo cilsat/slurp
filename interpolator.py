@@ -104,7 +104,6 @@ def test():
     from writer import Writer
 
     w, p = slurp.getBores()
-    p.dropna(inplace=True)
     p['rh'] = p['r']*config['buffersize'] # r horizontal
 
     # set minimum r horizontal

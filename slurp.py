@@ -63,6 +63,8 @@ def getBores(file='data/Imod Jakarta/Boreholes_Jakarta.ipf'):
     df['dep'] = dfg.top.transform(lambda x: x.diff())
     # concatenate adjacent layers of the same type
     df['lay'] = dfg.fer.transform(lambda x: (x.diff(1).abs() == 1).cumsum())
+    # remove nans
+    df.dropna(inplace=True)
     # get centers and radius of each layer
     points = df.loc[df.fer == 1, ['lay','x','y','top','dep']]
     pg = points.groupby([points.index, points.lay])

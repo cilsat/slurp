@@ -23,7 +23,6 @@ class ProgramRunner(QThread):
                 raise ValueError('Maximum gradient is 1')
 
             w, p = slurp.getBores(str(self.text_input))
-            p.dropna(inplace=True)
             p['rh'] = p['r']*config.config['buffersize'] # r horizontal
 
             # set minimum r horizontal
@@ -59,9 +58,9 @@ class Window(QtGui.QMainWindow, design.Ui_MainWindow):
         self.enable_button_run()
 
     def browse_output(self):
-        directory = QtGui.QFileDialog.getExistingDirectory(self, 'Folder Output', '')
-        if directory:
-            self.text_output.setText(directory)
+        folder = QtGui.QFileDialog.getExistingDirectory(self, 'Folder Output', '')
+        if folder:
+            self.text_output.setText(folder)
         self.enable_button_run()
 
     def enable_button_run(self):
