@@ -12,3 +12,8 @@ def parse():
         parser.readfp(f)
     for jenis in ['buffersize', 'cellsize', 'nodata_value']:
         config[jenis] = parser.getfloat('config', jenis)
+    config['soil'] = {}
+    for soil in parser.get('config', 'sand').split(', '):
+        config['soil'][soil] = 'sand'
+    for soil in parser.get('config', 'clay').split(', '):
+        config['soil'][soil] = 'clay'

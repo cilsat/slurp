@@ -20,7 +20,7 @@ class ProgramRunner(QThread):
 
             config.parse()
 
-            w, p = slurp.getBores(str(self.text_input))
+            w, p = slurp.getBores(str(self.text_input), config.config['soil'])
             p.dropna(inplace=True)
             p['rh'] = p['r']*config.config['buffersize'] # r horizontal
 
