@@ -19,6 +19,8 @@ class ProgramRunner(QThread):
             log('Reading files...')
 
             config.parse()
+            if config.config['gradient'] > 1:
+                raise ValueError('Maximum gradient is 1')
 
             w, p = slurp.getBores(str(self.text_input), config.config['soil'])
             p.dropna(inplace=True)
@@ -27,14 +29,11 @@ class ProgramRunner(QThread):
             # set minimum r horizontal
             rh_min = 1.6*config.config['cellsize']
             p.set_value(p['rh'] < rh_min, 'rh', rh_min)
-
-            df, adj = slurp.getGroups(p, config.config['buffersize'])
-            df['x'] += p['x'].min()
-            df['y'] += p['y'].min()
+            adj = slurp.getGroupies(p, config.config['gradient'], config.config['buffersize'])
 
             log(' Done\n')
 
-            interpolator = Interpolator(p, df, adj, writer, log)
+            interpolator = Interpolator(p, adj, writer, log)
             interpolator.interpolate()
 
             log('\n[DONE]')
@@ -60,9 +59,9 @@ class Window(QtGui.QMainWindow, design.Ui_MainWindow):
         self.enable_button_run()
 
     def browse_output(self):
-        directory = QtGui.QFileDialog.getExistingDirectory(self, 'Folder Output', '')
-        if directory:
-            self.text_output.setText(directory)
+        folder = QtGui.QFileDialog.getExistingDirectory(self, 'Folder Output', '')
+        if folder:
+            self.text_output.setText(folder)
         self.enable_button_run()
 
     def enable_button_run(self):

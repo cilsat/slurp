@@ -111,7 +111,6 @@ def getGroupies(dfp, grad=1.0, f=10):
                     stack.append(wi[n])
                     count.append(wi[n])
         i.append([count, list(set(np.array(count).flatten()))])
-
     return i
 
 def getWells(filename):
