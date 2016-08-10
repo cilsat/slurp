@@ -34,10 +34,37 @@ class Interpolator:
             for i in range(0, len(dfg)):
                 item = dfg.iloc[i]
                 gridz = self.make_gridz(item, gridxy, gridx.shape)
-                compara_top = np.asarray([surface_top, item['z']+gridz])
-                compara_bottom = np.asarray([surface_bottom, item['z']-gridz])
-                surface_top[:] = np.nanmax(compara_top, axis=0)
-                surface_bottom[:] = np.nanmin(compara_bottom, axis=0)
+                surface_top[:] = np.nanmax([surface_top, item['z']+gridz], axis=0)
+                surface_bottom[:] = np.nanmin([surface_bottom, item['z']-gridz], axis=0)
+
+            # interpolation
+            surface_top[surface_top!=surface_top] = -999999
+            surface_bottom[surface_bottom!=surface_bottom] = 999999
+            for m in range(0, len(group[1])):       # point to point...
+                for n in range(m+1, len(group[1])): # ...exhaustive search
+                    p1, p2 = self.p.iloc[group[1][m]], self.p.iloc[group[1][n]]
+                    angle = -math.atan2(p2['y']-p1['y'], p2['x']-p1['x'])
+                    points, values_top, values_bottom = [], [], []
+                    for p in [p1, p2]:
+                        points.append([p['x'], p['y']])
+                        values_top.append(p['z']+p['r'])
+                        values_bottom.append(p['z']-p['r'])
+                        dx, dy = p['rh']*math.sin(angle), p['rh']*math.cos(angle)
+                        points.append([p['x']+dx, p['y']+dy])
+                        values_top.append(p['z'])
+                        values_bottom.append(p['z'])
+                        points.append([p['x']-dx, p['y']-dy])
+                        values_top.append(p['z'])
+                        values_bottom.append(p['z'])
+                    try:
+                        gridz_top = griddata(points, values_top, (gridx, gridy), method='cubic', fill_value=-999999)
+                        gridz_bottom = griddata(points, values_bottom, (gridx, gridy), method='cubic', fill_value=999999)
+                        surface_top[:] = np.nanmax([surface_top, gridz_top], axis=0)
+                        surface_bottom[:] = np.nanmin([surface_bottom, gridz_bottom], axis=0)
+                    except:
+                        qhul = 'error'
+            surface_top[surface_top==-999999] = np.nan
+            surface_bottom[surface_bottom==999999] = np.nan
 
             self.smoothing(surface_top, surface_bottom)
             self.writer.write(ncols, nrows, xllcorner, yllcorner,
@@ -110,8 +137,12 @@ def test():
     import sys
     import slurp
     from writer import Writer
+    from config import parse
 
-    w, p = slurp.getBores()
+    parse()
+
+    w, p = slurp.getBores(soilmap=config['soil'])
+    p.dropna(inplace=True)
     p['rh'] = p['r']*config['buffersize'] # r horizontal
 
     # set minimum r horizontal
