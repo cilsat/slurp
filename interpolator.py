@@ -91,9 +91,17 @@ class Interpolator:
         right = np.roll(mean, -1, axis=1)
         top = np.roll(mean, 1, axis=0)
         bottom = np.roll(mean, -1, axis=0)
+        topleft = np.roll(top, 1, axis=1)
+        topright = np.roll(top, -1, axis=1)
+        bottomleft = np.roll(bottom, 1, axis=1)
+        bottomright = np.roll(bottom, -1, axis=1)
 
         nonnans = mean==mean
         for neighbor in [left, right, top, bottom]:
+            select = nonnans*(neighbor!=neighbor)
+            surface_top[select] = mean[select]
+            surface_bottom[select] = mean[select]
+        for neighbor in [topleft, topright, bottomleft, bottomright]:
             select = nonnans*(neighbor!=neighbor)
             surface_top[select] = mean[select]
             surface_bottom[select] = mean[select]
