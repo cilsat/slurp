@@ -36,7 +36,7 @@ def showLayers(wells, lays_uniq):
     ax.scatter(x, y, z2, c='r')
     plt.show()
 
-def getBores(file='data/Imod Jakarta/Boreholes_Jakarta.ipf'):
+def getBores(file='data/Imod Jakarta/Boreholes_Jakarta.ipf', soilmap=None):
     # read data
     path = os.path.dirname(file)
     raw = open(file).read().split('\n')[10:-1]
@@ -57,14 +57,13 @@ def getBores(file='data/Imod Jakarta/Boreholes_Jakarta.ipf'):
     layers = pd.DataFrame(layers, columns=['name', 'top', 'soil']).set_index('name')
     df = pd.concat((wells, layers), axis=1, join='inner')
     # map soil types to aquafer/tard
-    df['fer'] = df.soil.str.startswith('sand').astype(np.int8)
+    df['fer'] = df.soil.map(soilmap) == 'sand'
     # get depth for all aquafer layers
     dfg = df.groupby(df.index)
     df['dep'] = dfg.top.transform(lambda x: x.diff())
     # concatenate adjacent layers of the same type
     df['lay'] = dfg.fer.transform(lambda x: (x.diff(1).abs() == 1).cumsum())
-    # remove nans
-    df.dropna(inplace=True)
+    print(df.head())
     # get centers and radius of each layer
     points = df.loc[df.fer == 1, ['lay','x','y','top','dep']]
     pg = points.groupby([points.index, points.lay])
@@ -112,69 +111,7 @@ def getGroupies(dfp, grad=1.0, f=10):
                     stack.append(wi[n])
                     count.append(wi[n])
         i.append([count, list(set(np.array(count).flatten()))])
-
     return i
-
-"""
-def _getGroups(dfp, grad=2.0, f=10):
-    # get xy coordinates of wells and calculate distances
-    p = dfp.copy()
-    p.x -= p.x.min()
-    p.y -= p.y.min()
-    pg = p.groupby(level=0)
-    xy = pg[['x','y']].first()
-    dxy = cdist(xy.values, xy.values)
-
-    # get max radii of wells and calculate needed distance to overcome
-    # constant 'f' is the multiplication factor of the radius
-    r = f*pg.r.max().values
-    rr = np.add.outer(r, r.T)
-
-    # find wells that potentially intersect, remove redundant and self
-    d = dxy < rr
-    np.fill_diagonal(d, False)
-    wi = np.argwhere(np.triu(d)).tolist()
-
-    # dfs to find connected wells
-    i = []
-    while wi:
-        stack = [wi[0]]
-        count = [wi[0]]
-        while stack:
-            w = stack.pop()
-            wi.remove(w)
-            if len(wi) == 0: break
-            d = ((w - np.array(wi)) == 0).T
-            ns = np.argwhere(np.logical_xor(d[0], d[1])).flatten().tolist()
-            for n in ns:
-                if wi[n] not in stack:
-                    stack.append(wi[n])
-                    count.append(wi[n])
-        i.append([count, list(set(np.array(count).flatten()))])
-
-    # for each group, assume nodes connect at the largest aquafir
-    dfgraph = []
-    adj = {}
-    for group in i:
-        order, nodes = group
-        dfnodes = p.loc[p.loc[xy.iloc[nodes].index.tolist()].groupby(level=0).r.idxmax()]
-        dfnodes['lbl'] = nodes
-        dfgraph.append(dfnodes)
-        for i in nodes:
-            adj[i] = []
-        for n in order:
-            a, b = n
-            adj[a].append(b)
-            adj[b].append(a)
-
-    dfgraph = pd.concat(dfgraph)
-    xy = dfgraph[['x','y']].values
-    dxy = cdist(xy, xy)
-    z = dfgraph.z.values
-    dz = np.subtract.outer(z, z.T)
-    gxyz = dz/dxy
-    return dfgraph, adj
-"""
 
 def getWells(filename):
     data = open(filename).read().replace('\r','').split('\n')

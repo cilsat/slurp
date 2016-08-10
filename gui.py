@@ -22,7 +22,8 @@ class ProgramRunner(QThread):
             if config.config['gradient'] > 1:
                 raise ValueError('Maximum gradient is 1')
 
-            w, p = slurp.getBores(str(self.text_input))
+            w, p = slurp.getBores(str(self.text_input), config.config['soil'])
+            p.dropna(inplace=True)
             p['rh'] = p['r']*config.config['buffersize'] # r horizontal
 
             # set minimum r horizontal
