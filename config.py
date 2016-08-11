@@ -14,7 +14,7 @@ def parse():
     for jenis in ['buffersize', 'gradient', 'cellsize', 'nodata_value']:
         config[jenis] = parser.getfloat('config', jenis)
     config['soil'] = {}
-    for soil in parser.get('config', 'sand').split(', '):
-        config['soil'][soil] = 'sand'
-    for soil in parser.get('config', 'clay').split(', '):
-        config['soil'][soil] = 'clay'
+    for soil in parser.get('config', 'fer').split(', '):
+        config['soil'][soil] = 'fer'
+    for soil in parser.get('config', 'tar').split(', '):
+        config['soil'][soil] = 'tar'

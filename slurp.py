@@ -9,12 +9,12 @@ from scipy.interpolate import LinearNDInterpolator, SmoothBivariateSpline
 from scipy.spatial.distance import cdist
 from numpy.linalg import norm
 
-def showScatterplot(x, y, z):
+def show_scatterplot(x, y, z):
     ax = plt.figure().gca(projection='3d')
     ax.scatter(x, y, z)
     plt.show()
 
-def showBores(wells):
+def show_bores(wells):
     x, y, z1, z2 = np.array(wells).T
     ax = plt.gca(projection='3d')
     [ax.plot([i,i],[j,j],[k,h], c='black') for i,j,k,h in zip(x,y,z1,z2)]
@@ -22,7 +22,7 @@ def showBores(wells):
     ax.scatter(x, y, z2, c='r')
     plt.show()
 
-def showLayers(wells, lays_uniq):
+def show_layers(wells, lays_uniq):
     df = pd.concat((wells, lays_uniq), join='inner', axis=1)
     fer = df[df['type'] == 'fer'].loc[:, ['x','y','z1','z2']].get_values()
     tard = df[df['type'] == 'tard'].loc[:, ['x','y','z1','z2']].get_values()
@@ -36,33 +36,97 @@ def showLayers(wells, lays_uniq):
     ax.scatter(x, y, z2, c='r')
     plt.show()
 
-def getBores(file='data/Imod Jakarta/Boreholes_Jakarta.ipf', soilmap=None):
+def get_screens(file='data/wells_M_z_known.ipf'):
+    df = pd.read_csv(file, delimiter=',', skiprows=7, header=0, names=['x','y','q','z1','z2'], usecols=[0,1,3,4])
+    df['name'] = (df.x.astype(str)+df.y.astype(str)).astype(int)
+    df.set_index('name', inplace=True)
+
+    # drop duplicate entries
+    df.drop_duplicates(inplace=True)
+    # we define 'layers' by their centre points 'z' and thickness 'r'
+    # radius r
+    df['r'] = 0.5*(df.z1 - df.z2).abs()
+    # centre z
+    df['z'] = 0.5*(df.z1 + df.z2)
+    # drop negative z entries: probably some kind of data entry error
+    #df.drop(df.z < 0, inplace=True)
+    df.drop(['z1','z2'], axis=1, inplace=True)
+
+    # method to merge overlapping layers in a given well
+    # overlapping layers are averaged w.r.t. depth and thickness
+    def merge_layers(dfc):
+        r = dfc.r.values
+        z = dfc.z.values
+        rr = np.add.outer(r, r.T)
+        zz = np.abs(np.subtract.outer(z, z.T))
+        # 2 layers are said to overlap iff the sum of their radii is larger
+        # than the distance between their centres
+        fg = (zz < rr)
+        np.fill_diagonal(fg, False)
+        # merge overlapping layers into groups: a single well may have layers
+        # that overlap at different depths, not just one.
+        g = np.argwhere(np.triu(fg)).tolist()
+        i = []
+        while g:
+            stack = [g[0]]
+            count = [g[0]]
+            while stack:
+                w = stack.pop()
+                g.remove(w)
+                if len(g) == 0: break
+                d = ((w - np.array(g)) == 0).T
+                ns = np.argwhere(np.logical_xor(d[0], d[1])).flatten().tolist()
+                for n in ns:
+                    if g[n] not in stack:
+                        stack.append(g[n])
+                        count.append(g[n])
+            i.append(list(set(np.array(count).flatten())))
+        xy = [dfc.iloc[0,0], dfc.iloc[0,1]]
+        joint = list(set(np.array(i).flatten()))
+        rz = np.dstack((r,z))[0]
+        rzl = []
+        [rzl.append(xy + np.mean(rz[idx], axis=0).tolist()) for idx in i]
+        [rzl.append(xy + rn) for n, rn in enumerate(rz.tolist()) if n not in joint]
+        dfr = pd.DataFrame(rzl, columns=['x', 'y', 'r','z'], index=[dfc.index[0]]*len(rzl))
+        return dfr
+
+    # loop through the unique wells: if there is more than one screen there may
+    # be overlapping layers
+    idx = df.index.unique()
+    dfn = []
+    for d in df.index.unique():
+        dfc = df.loc[d]
+        if dfc.ndim > 1:
+            dfn.append(merge_layers(dfc))
+            df.drop(d, inplace=True)
+            
+    dfn = pd.concat((df, pd.concat(dfn)))
+    dfn['lay'] = dfn.groupby(dfn.index).z.transform(lambda x: (x.diff() != 0).cumsum() - 1)
+    return dfn
+
+def get_bores(file='data/Imod Jakarta/Boreholes_Jakarta.ipf', soilmap=None):
     # read data
-    path = os.path.dirname(file)
-    raw = open(file).read().split('\n')[10:-1]
+    df = pd.read_csv(file, delimiter=',', skiprows=10, header=0, names=['x','y','name'], usecols=[0,1,2]).set_index('name')
+    boredir = df.index[0].split('\\')[0]
+    df.index = df.index.str[len(boredir)+1:]
+    path = os.path.join(os.path.dirname(file), boredir)
 
-    wells = []
     layers = []
-    for r in raw:
-        x, y, name, top, btm = r.split(',')[:5]
-        wname = name.split('\\')[-1]
-        wells.append([wname, float(x), float(y)])
-
-        well = open(os.path.join(path, name.replace('\\','/')+'.txt')).read().split('\n')[4:-1]
+    for name in df.index:
+        well = open(os.path.join(path, name+'.txt')).read().split('\n')[4:-1]
         for layer in well:
             depth, soil = layer.split(',')
-            layers.append([wname, float(depth), soil])
+            layers.append([name.split('/')[-1], float(depth), soil])
 
-    wells = pd.DataFrame(wells, columns=['name', 'x', 'y']).set_index('name')
     layers = pd.DataFrame(layers, columns=['name', 'top', 'soil']).set_index('name')
-    df = pd.concat((wells, layers), axis=1, join='inner')
+    df = pd.concat((df, layers), axis=1, join='inner')
     # map soil types to aquafer/tard
-    df['fer'] = df.soil.map(soilmap) == 'sand'
+    df['fer'] = (df.soil.map(soilmap) == 'fer').astype(np.int8)
     # get depth for all aquafer layers
     dfg = df.groupby(df.index)
     df['dep'] = dfg.top.transform(lambda x: x.diff())
     # concatenate adjacent layers of the same type
-    df['lay'] = dfg.fer.transform(lambda x: (x.diff(1).abs() == 1).cumsum())
+    df['lay'] = dfg.fer.transform(lambda x: (x.diff().abs() == 1).cumsum())
     print(df.head())
     # get centers and radius of each layer
     points = df.loc[df.fer == 1, ['lay','x','y','top','dep']]
@@ -71,11 +135,12 @@ def getBores(file='data/Imod Jakarta/Boreholes_Jakarta.ipf', soilmap=None):
     points['r'] = pg.dep.transform(lambda x: 0.5*np.abs(x.sum()))
     print('points:')
     print(points.head())
+    points.dropna(inplace=True)
     points = points.groupby([points.index, points.lay])['x','y','z','r'].first()
 
     return df, points
 
-def getGroupies(dfp, grad=1.0, f=10):
+def get_groupies(dfp, grad=1.0, f=10):
     p = dfp.copy()
     xy = p[['x','y']]
     z = p.z.values
@@ -112,77 +177,6 @@ def getGroupies(dfp, grad=1.0, f=10):
                     count.append(wi[n])
         i.append([count, list(set(np.array(count).flatten()))])
     return i
-
-def getWells(filename):
-    data = open(filename).read().replace('\r','').split('\n')
-    data = [d for d in data if len(d.split(',')) == 5]
-
-    i = -1
-    ids = []
-    wells = []
-    rows = []
-    for d in data:
-        x,y,q,z1,z2 = d.split(',')
-        rows.append([float(x), float(y), float(z1), float(z2)])
-        if [x,y] not in wells:
-            wells.append([x,y])
-            i += 1
-        ids.append(i)
-    data = np.array(rows)
-    #data[:,:2] -= [data[:,0].min(), data[:,1].min()]
-
-    df = pd.DataFrame(data, index=ids, columns=['x', 'y', 'z1', 'z2'])
-    df.index.name = 'wid'
-    df.drop_duplicates(inplace=True)
-    return df
-
-def getLayers(df):
-    top = []
-    for n in range(df.index[-1]+1):
-        first = df.loc[n].get_values()
-        if first.ndim > 1:
-            top.append(first[np.argmax(first[:,2]),:3])
-        else:
-            top.append(first[:3])
-    top = np.array(top)
-    return top
-
-def readConf(conf):
-    try:
-        f = open(conf)
-    except:
-        print("Could not find slurp.conf file: using default config")
-
-    if f:
-        f = f.read().split('\n')
-
-def interpolasurface(data, ip='linear'):
-    x, y, z = data[:, 0], data[:, 1], data[:, 2]
-
-    kiri, kanan = x.min(), x.max()
-    bawah, atas = y.min(), y.max()
-
-    if ip == 'linear':
-        interpolator = LinearNDInterpolator(np.asarray([x, y]).T, z)
-    elif ip == 'bispline':
-        interpolator = SmoothBivariateSpline(
-            x, y, z,
-            kx=2, ky=2,
-            bbox=[kiri, kanan, bawah, atas]
-        )
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    linx = np.linspace(kiri, kanan, 200)
-    liny = np.linspace(bawah, atas, 200)
-    gridx, gridy = np.meshgrid(linx, liny)
-    linz = np.array([interpolator(ptx, pty) for ptx, pty in zip(np.ravel(gridx), np.ravel(gridy))])
-    gridz = linz.reshape(gridx.shape)
-
-    ax.scatter(x, y, z, c='r')
-    ax.plot_surface(gridx, gridy, gridz)
-
-    plt.show()
 
 if __name__ == "__main__":
     data = getData(sys.argv[1])

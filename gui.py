@@ -22,14 +22,14 @@ class ProgramRunner(QThread):
             if config.config['gradient'] > 1:
                 raise ValueError('Maximum gradient is 1')
 
-            w, p = slurp.getBores(str(self.text_input), config.config['soil'])
+            w, p = slurp.get_bores(str(self.text_input), config.config['soil'])
             p.dropna(inplace=True)
             p['rh'] = p['r']*config.config['buffersize'] # r horizontal
 
             # set minimum r horizontal
             rh_min = 1.6*config.config['cellsize']
             p.set_value(p['rh'] < rh_min, 'rh', rh_min)
-            adj = slurp.getGroupies(p, config.config['gradient'], config.config['buffersize'])
+            adj = slurp.get_groupies(p, config.config['gradient'], config.config['buffersize'])
 
             log(' Done\n')
 
