@@ -106,17 +106,15 @@ def get_screens(file='data/wells_M_z_known.ipf'):
 
 def get_bores(file='data/Imod Jakarta/Boreholes_Jakarta.ipf', soilmap=None):
     # read data
-    df = pd.read_csv(file, delimiter=',', skiprows=10, header=0, names=['x','y','name'], usecols=[0,1,2]).set_index('name')
-    boredir = df.index[0].split('\\')[0]
-    df.index = df.index.str[len(boredir)+1:]
-    path = os.path.join(os.path.dirname(file), boredir)
+    df = pd.read_csv(file, delimiter=',', skiprows=10, header=0, names=['x','y','path','name'], usecols=[0,1,2,5]).set_index('name')
+    data_path = os.path.dirname(file)
 
     layers = []
-    for name in df.index:
-        well = open(os.path.join(path, name+'.txt')).read().split('\n')[4:-1]
+    for name, path in df.path.iteritems():
+        well = open(os.path.join(data_path, path.replace('\\','/')+'.txt')).read().split('\n')[4:-1]
         for layer in well:
             depth, soil = layer.split(',')
-            layers.append([name.split('/')[-1], float(depth), soil])
+            layers.append([name, float(depth), soil])
 
     layers = pd.DataFrame(layers, columns=['name', 'top', 'soil']).set_index('name')
     df = pd.concat((df, layers), axis=1, join='inner')
