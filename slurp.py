@@ -38,7 +38,7 @@ def show_layers(wells, lays_uniq):
 
 def get_screens(file='data/wells_M_z_known.ipf'):
     df = pd.read_csv(file, delimiter=',', skiprows=7, header=0, names=['x','y','q','z1','z2'], usecols=[0,1,3,4])
-    df['name'] = (df.x.astype(str)+df.y.astype(str)).astype(int)
+    df['name'] = (df.x.astype(str)+df.y.astype(str))
     df.set_index('name', inplace=True)
 
     # drop duplicate entries
@@ -102,7 +102,7 @@ def get_screens(file='data/wells_M_z_known.ipf'):
             
     dfn = pd.concat((df, pd.concat(dfn)))
     dfn['lay'] = dfn.groupby(dfn.index).z.transform(lambda x: (x.diff() != 0).cumsum() - 1)
-    return dfn
+    return dfn.groupby([dfn.index, dfn.lay])[dfn.columns[:-1]].first()
 
 def get_bores(file='data/Imod Jakarta/Boreholes_Jakarta.ipf', soilmap=None):
     # read data
@@ -140,7 +140,7 @@ def get_bores(file='data/Imod Jakarta/Boreholes_Jakarta.ipf', soilmap=None):
 
     return df, points
 
-def get_groupies(dfp, grad=1.0, f=10):
+def get_groupies(dfp, grad=1.0, f=2):
     p = dfp.copy()
     xy = p[['x','y']]
     z = p.z.values

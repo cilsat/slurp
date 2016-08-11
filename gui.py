@@ -7,6 +7,7 @@ from PyQt4.QtCore import QThread, SIGNAL
 import design
 import config
 import slurp
+import pandas as pd
 from interpolator import Interpolator
 from writer import Writer
 
@@ -23,7 +24,11 @@ class ProgramRunner(QThread):
                 raise ValueError('Maximum gradient is 1')
 
             w, p = slurp.get_bores(str(self.text_input), config.config['soil'])
-            p.dropna(inplace=True)
+            sp = slurp.get_screens(str(self.text_screen))
+            p = pd.concat((p, sp))
+            print(p)
+            p.drop(p.loc[p.r > (p.r.mean() + 2*p.r.std())].index, inplace=True)
+
             p['rh'] = p['r']*config.config['buffersize'] # r horizontal
 
             # set minimum r horizontal
