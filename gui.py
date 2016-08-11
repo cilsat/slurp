@@ -49,13 +49,20 @@ class Window(QtGui.QMainWindow, design.Ui_MainWindow):
         self.setupUi(self)
 
         self.button_input.clicked.connect(self.browse_input)
+        self.button_screen.clicked.connect(self.browse_screen)
         self.button_output.clicked.connect(self.browse_output)
         self.button_run.clicked.connect(self.run_program)
 
     def browse_input(self):
-        file = QtGui.QFileDialog.getOpenFileName(self, 'Open File', '', 'IPF (*.ipf)')
+        file = QtGui.QFileDialog.getOpenFileName(self, 'Open Borehole File', '', 'IPF (*.ipf)')
         if file:
             self.text_input.setText(file)
+        self.enable_button_run()
+
+    def browse_screen(self):
+        file = QtGui.QFileDialog.getOpenFileName(self, 'Open Screen File', '', 'IPF (*.ipf)')
+        if file:
+            self.text_screen.setText(file)
         self.enable_button_run()
 
     def browse_output(self):
@@ -65,18 +72,19 @@ class Window(QtGui.QMainWindow, design.Ui_MainWindow):
         self.enable_button_run()
 
     def enable_button_run(self):
-        if self.text_input.text() != '' and self.text_output.text() != '':
+        if self.text_input.text() != '' and self.text_screen.text() != '' and self.text_output.text() != '':
             self.button_run.setEnabled(True)
         else:
             self.button_run.setEnabled(False)
 
     def run_program(self):
         self.log.setText('')
-        for button in [self.button_input, self.button_output, self.button_run]:
+        for button in [self.button_input, self.button_screen, self.button_output, self.button_run]:
             button.setEnabled(False)
 
         self.program_runner = ProgramRunner()
         self.program_runner.text_input = self.text_input.text()
+        self.program_runner.text_screen = self.text_screen.text()
         self.program_runner.text_output = self.text_output.text()
         self.connect(self.program_runner, SIGNAL('logging(QString)'), self.logging)
         self.connect(self.program_runner, SIGNAL('finish_program()'), self.finish_program)
@@ -88,7 +96,7 @@ class Window(QtGui.QMainWindow, design.Ui_MainWindow):
         self.log.moveCursor(QtGui.QTextCursor.End)
 
     def finish_program(self):
-        for button in [self.button_input, self.button_output]:
+        for button in [self.button_input, self.button_screen, self.button_output]:
             button.setEnabled(True)
         self.enable_button_run()
 
