@@ -36,26 +36,27 @@ def show_layers(wells, lays_uniq):
     ax.scatter(x, y, z2, c='r')
     plt.show()
 
+def first_nonzero(a):
+    for n,l in enumerate(a):
+        if np.any(l):
+            return [n, np.argmax(l)]
+
 def dfs(src):
     srcpy = np.triu(src)
-    g = np.argwhere(srcpy).tolist()
+    #g = np.argwhere(srcpy).tolist()
     out = []
     # global dfs loop
-    while g:
-        stack = [g[0]]
-        count = [g[0]]
+    while np.any(srcpy):
+        first = first_nonzero(srcpy)
+        stack = [first]
+        count = [first]
         # main dfs loop
         while stack:
             # get first pair from stack and remove from global
             w = stack.pop()
-            print(w)
-            g.remove(w)
-            if not g: break
+            srcpy.itemset(tuple(w), False)
+            if not np.any(srcpy): break
             # find all pairs connected to w
-            """
-            d = ((w - np.array(g)) == 0).T
-            ns = np.argwhere(np.logical_xor(d[0], d[1])).flatten().tolist()
-            """
             ns = [[w[n[0]], n[1]] for n in np.argwhere(srcpy[w])]
             # push new pairs if not already in stack
             new = [n for n in ns if n not in stack]
@@ -96,7 +97,7 @@ def get_screens(file='data/wells_M_z_known.ipf'):
         i = dfs(fg)
 
         xy = [dfc.iloc[0,0], dfc.iloc[0,1]]
-        joint = list(set(np.array([ix[1] for ix in i]).flatten()))
+        joint = list(set([m for ix in i for m in ix[1]]))
         rz = np.dstack((r,z))[0]
         rzl = []
         [rzl.append(xy + np.mean(rz[idx], axis=0).tolist()) for _,idx in i]
@@ -171,10 +172,10 @@ def get_groupies(dfp, grad=1.0, f=2):
     d = (np.abs(gxyz) < grad)*(dxy < f*sr)
     np.fill_diagonal(d, False)
 
+    print('dfs')
     # dfs to find connected wells
-    return d
     df = dfs(d)
-    return dfs
+    return df
 
 if __name__ == "__main__":
     data = getData(sys.argv[1])
