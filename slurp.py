@@ -36,6 +36,34 @@ def show_layers(wells, lays_uniq):
     ax.scatter(x, y, z2, c='r')
     plt.show()
 
+def dfs(src):
+    srcpy = np.triu(src)
+    g = np.argwhere(srcpy).tolist()
+    out = []
+    # global dfs loop
+    while g:
+        stack = [g[0]]
+        count = [g[0]]
+        # main dfs loop
+        while stack:
+            # get first pair from stack and remove from global
+            w = stack.pop()
+            print(w)
+            g.remove(w)
+            if not g: break
+            # find all pairs connected to w
+            """
+            d = ((w - np.array(g)) == 0).T
+            ns = np.argwhere(np.logical_xor(d[0], d[1])).flatten().tolist()
+            """
+            ns = [[w[n[0]], n[1]] for n in np.argwhere(srcpy[w])]
+            # push new pairs if not already in stack
+            new = [n for n in ns if n not in stack]
+            stack.extend(new)
+            count.extend(new)
+        out.append([count, list(set(np.array(count).flatten()))])
+    return out
+
 def get_screens(file='data/wells_M_z_known.ipf'):
     df = pd.read_csv(file, delimiter=',', skiprows=7, header=0, names=['x','y','q','z1','z2'], usecols=[0,1,3,4])
     df['name'] = (df.x.astype(str)+df.y.astype(str))
@@ -65,33 +93,19 @@ def get_screens(file='data/wells_M_z_known.ipf'):
         np.fill_diagonal(fg, False)
         # merge overlapping layers into groups: a single well may have layers
         # that overlap at different depths, not just one.
-        g = np.argwhere(np.triu(fg)).tolist()
-        i = []
-        while g:
-            stack = [g[0]]
-            count = [g[0]]
-            while stack:
-                w = stack.pop()
-                g.remove(w)
-                if len(g) == 0: break
-                d = ((w - np.array(g)) == 0).T
-                ns = np.argwhere(np.logical_xor(d[0], d[1])).flatten().tolist()
-                for n in ns:
-                    if g[n] not in stack:
-                        stack.append(g[n])
-                        count.append(g[n])
-            i.append(list(set(np.array(count).flatten())))
+        i = dfs(fg)
+
         xy = [dfc.iloc[0,0], dfc.iloc[0,1]]
-        joint = list(set(np.array(i).flatten()))
+        joint = list(set(np.array([ix[1] for ix in i]).flatten()))
         rz = np.dstack((r,z))[0]
         rzl = []
-        [rzl.append(xy + np.mean(rz[idx], axis=0).tolist()) for idx in i]
+        [rzl.append(xy + np.mean(rz[idx], axis=0).tolist()) for _,idx in i]
         [rzl.append(xy + rn) for n, rn in enumerate(rz.tolist()) if n not in joint]
         dfr = pd.DataFrame(rzl, columns=['x', 'y', 'r','z'], index=[dfc.index[0]]*len(rzl))
         return dfr
 
-    # loop through the unique wells: if there is more than one screen there may
-    # be overlapping layers
+    # loop through the unique wells: if there is more than one screen in a
+    # particular well there may be overlapping layers
     idx = df.index.unique()
     dfn = []
     for d in df.index.unique():
@@ -99,9 +113,9 @@ def get_screens(file='data/wells_M_z_known.ipf'):
         if dfc.ndim > 1:
             dfn.append(merge_layers(dfc))
             df.drop(d, inplace=True)
-            
+
     dfn = pd.concat((df, pd.concat(dfn)))
-    dfn['lay'] = dfn.groupby(dfn.index).z.transform(lambda x: (x.diff() != 0).cumsum() - 1)
+    dfn['lay'] = dfn.groupby(dfn.index).z.transform(lambda x: (x.diff() != 0).cumsum())
     return dfn.groupby([dfn.index, dfn.lay])[dfn.columns[:-1]].first()
 
 def get_bores(file='data/Imod Jakarta/Boreholes_Jakarta.ipf', soilmap=None):
@@ -156,28 +170,15 @@ def get_groupies(dfp, grad=1.0, f=2):
     # than sum of radii times some multiple
     d = (np.abs(gxyz) < grad)*(dxy < f*sr)
     np.fill_diagonal(d, False)
-    wi = np.argwhere(np.triu(d)).tolist()
 
     # dfs to find connected wells
-    i = []
-    while wi:
-        stack = [wi[0]]
-        count = [wi[0]]
-        while stack:
-            w = stack.pop()
-            wi.remove(w)
-            if len(wi) == 0: break
-            d = ((w - np.array(wi)) == 0).T
-            ns = np.argwhere(np.logical_xor(d[0], d[1])).flatten().tolist()
-            for n in ns:
-                if wi[n] not in stack:
-                    stack.append(wi[n])
-                    count.append(wi[n])
-        i.append([count, list(set(np.array(count).flatten()))])
-    return i
+    return d
+    df = dfs(d)
+    return dfs
 
 if __name__ == "__main__":
     data = getData(sys.argv[1])
     top = getLayers(data)
     # showScatterplot(data[:,0], data[:,1], data[:,2])
     interpolasurface(top, sys.argv[2])
+

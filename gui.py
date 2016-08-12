@@ -30,13 +30,17 @@ class ProgramRunner(QThread):
             p.drop(p.loc[p.r > (p.r.mean() + 2*p.r.std())].index, inplace=True)
 
             p['rh'] = p['r']*config.config['buffersize'] # r horizontal
+            p.drop(p.loc[p.rh > 2000].index, inplace=True)
+
+            log('\nPre-processing done\n')
 
             # set minimum r horizontal
             rh_min = 1.6*config.config['cellsize']
             p.set_value(p['rh'] < rh_min, 'rh', rh_min)
             adj = slurp.get_groupies(p, config.config['gradient'], config.config['buffersize'])
 
-            log(' Done\n')
+            log('\nClustering done\n')
+            log('Interpolating ')
 
             interpolator = Interpolator(p, adj, writer, log)
             interpolator.interpolate()

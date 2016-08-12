@@ -40,29 +40,33 @@ class Interpolator:
             # interpolation
             surface_top[surface_top!=surface_top] = -999999
             surface_bottom[surface_bottom!=surface_bottom] = 999999
-            for m in range(0, len(group[1])):       # point to point...
-                for n in range(m+1, len(group[1])): # ...exhaustive search
-                    p1, p2 = self.p.iloc[group[1][m]], self.p.iloc[group[1][n]]
-                    angle = -math.atan2(p2['y']-p1['y'], p2['x']-p1['x'])
-                    points, values_top, values_bottom = [], [], []
-                    for p in [p1, p2]:
-                        points.append([p['x'], p['y']])
-                        values_top.append(p['z']+p['r'])
-                        values_bottom.append(p['z']-p['r'])
-                        dx, dy = p['rh']*math.sin(angle), p['rh']*math.cos(angle)
-                        points.append([p['x']+dx, p['y']+dy])
-                        values_top.append(p['z'])
-                        values_bottom.append(p['z'])
-                        points.append([p['x']-dx, p['y']-dy])
-                        values_top.append(p['z'])
-                        values_bottom.append(p['z'])
-                    try:
-                        gridz_top = griddata(points, values_top, (gridx, gridy), method='cubic', fill_value=-999999)
-                        gridz_bottom = griddata(points, values_bottom, (gridx, gridy), method='cubic', fill_value=999999)
-                        surface_top[:] = np.nanmax([surface_top, gridz_top], axis=0)
-                        surface_bottom[:] = np.nanmin([surface_bottom, gridz_bottom], axis=0)
-                    except:
-                        qhul = 'error'
+            #for m in range(0, len(group[1])):       # point to point...
+            #    for n in range(m+1, len(group[1])): # ...exhaustive search
+            #        p1, p2 = self.p.iloc[group[1][m]], self.p.iloc[group[1][n]]
+            self.log('\n')
+            for i1, i2 in group[0]:
+                self.log('.')
+                p1, p2 = self.p.iloc[i1], self.p.iloc[i2]
+                angle = -math.atan2(p2['y']-p1['y'], p2['x']-p1['x'])
+                points, values_top, values_bottom = [], [], []
+                for p in [p1, p2]:
+                    points.append([p['x'], p['y']])
+                    values_top.append(p['z']+p['r'])
+                    values_bottom.append(p['z']-p['r'])
+                    dx, dy = p['rh']*math.sin(angle), p['rh']*math.cos(angle)
+                    points.append([p['x']+dx, p['y']+dy])
+                    values_top.append(p['z'])
+                    values_bottom.append(p['z'])
+                    points.append([p['x']-dx, p['y']-dy])
+                    values_top.append(p['z'])
+                    values_bottom.append(p['z'])
+                try:
+                    gridz_top = griddata(points, values_top, (gridx, gridy), method='cubic', fill_value=-999999)
+                    gridz_bottom = griddata(points, values_bottom, (gridx, gridy), method='cubic', fill_value=999999)
+                    surface_top[:] = np.nanmax([surface_top, gridz_top], axis=0)
+                    surface_bottom[:] = np.nanmin([surface_bottom, gridz_bottom], axis=0)
+                except:
+                    qhul = 'error'
             surface_top[surface_top==-999999] = np.nan
             surface_bottom[surface_bottom==999999] = np.nan
 
