@@ -5,9 +5,11 @@ from scipy.interpolate import griddata
 
 from config import config
 import ellipsoid
+import sys
+from writer import Writer
 
 class Interpolator:
-    def __init__(self, p, adj, writer, log):
+    def __init__(self, p, adj, writer=Writer('test'), log=lambda msg:sys.stdout.write(msg)):
         self.p = p
         self.adj = adj
         self.writer = writer

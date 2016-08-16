@@ -179,29 +179,29 @@ def get_groupies(dfp, grad=1.0):
     adj = dfs_array(d)
     return adj
 
-def main(fbore='data/Imod Jakarta/Boreholes_Jakarta.ipf', fscreen='data/wells_M_z_known.ipf', config=None, log=None):
+def prep(fbore='data/Imod Jakarta/Boreholes_Jakarta.ipf', fscreen='data/wells_M_z_known.ipf', config=None, log=None):
     p = get_bores(file=fbore, soilmap=config.config['soil'])
     sp = get_screens(file=fscreen)
 
     # discard outliers
     p.drop(p[p.r > (p.r.mean() + 2*p.r.std())].index, inplace=True)
     sp.drop(sp[sp.r > (sp.r.mean() + 2*sp.r.std())].index, inplace=True)
-    log('Done\n')
+    if log: log('Done\n')
     # get buffered size of layers and join
     p['rh'] = p.r*config.config['bore_buff']
     sp['rh'] = sp.r*config.config['screen_buff']
     pp = pd.concat((p, sp))
     pp.sort_values(['x','y'], inplace=True)
-    log(pp.head().to_string())
-    log('\n')
-    log(pp.tail().to_string())
-
-    log('\nPre-processing...')
+    if log:
+        log(pp.head().to_string())
+        log('\n')
+        log(pp.tail().to_string())
+        log('\nPre-processing... ')
     pp.drop(pp[pp.rh > 2000].index, inplace=True)
     rh_min = 1.6*config.config['cellsize']
     pp.loc[pp.rh < rh_min, 'rh'] = rh_min
     adj = get_groupies(pp, grad=config.config['gradient'])
-    log('Done\n')
+    if log: log('Done\n')
     return pp, adj
 
 if __name__ == "__main__":
