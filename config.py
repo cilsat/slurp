@@ -11,7 +11,7 @@ def parse():
     parser = ConfigParser.RawConfigParser(allow_no_value=False)
     with open('config.cfg', 'r') as f:
         parser.readfp(f)
-    for jenis in ['buffersize', 'gradient', 'cellsize', 'nodata_value']:
+    for jenis in ['bore_buff', 'screen_buff', 'gradient', 'cellsize', 'nodata_value']:
         config[jenis] = parser.getfloat('config', jenis)
     config['soil'] = {}
     for soil in parser.get('config', 'fer').split(', '):

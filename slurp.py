@@ -7,34 +7,30 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 from scipy.interpolate import LinearNDInterpolator, SmoothBivariateSpline
 from scipy.spatial.distance import cdist
+from scipy.sparse import csr_matrix
 from numpy.linalg import norm
 
-def show_scatterplot(x, y, z):
-    ax = plt.figure().gca(projection='3d')
-    ax.scatter(x, y, z)
-    plt.show()
-
-def show_bores(wells):
-    x, y, z1, z2 = np.array(wells).T
-    ax = plt.gca(projection='3d')
-    [ax.plot([i,i],[j,j],[k,h], c='black') for i,j,k,h in zip(x,y,z1,z2)]
-    ax.scatter(x, y, z1, c='b')
-    ax.scatter(x, y, z2, c='r')
-    plt.show()
-
-def show_layers(wells, lays_uniq):
-    df = pd.concat((wells, lays_uniq), join='inner', axis=1)
-    fer = df[df['type'] == 'fer'].loc[:, ['x','y','z1','z2']].get_values()
-    tard = df[df['type'] == 'tard'].loc[:, ['x','y','z1','z2']].get_values()
-    dots = wells.get_values()
-
-    ax = plt.gca(projection='3d')
-    [ax.plot([i,i],[j,j],[k,h], c='black') for i,j,k,h in tard]
-    [ax.plot([i,i],[j,j],[k,h], c='orange') for i,j,k,h in fer]
-    x, y, z1, z2 = dots.T
-    ax.scatter(x, y, z1, c='b')
-    ax.scatter(x, y, z2, c='r')
-    plt.show()
+def dfs_array(inp):
+    src = inp.copy()
+    ln = src.shape[0]
+    out = []
+    nr = 0
+    while nr < ln:
+        if not np.any(src[nr]):
+            nr += 1
+            continue
+        coord, visit, stack = [], set(), [nr]
+        while stack:
+            x = stack.pop()
+            if x not in visit:
+                visit.add(x)
+                y = list(set(np.nonzero(src[x])[0]) - set(stack))
+                stack.extend(y)
+                [coord.append((x, yt)) for yt in y]
+                src[x,:] = False
+                src[:,x] = False
+        out.append([coord, list(visit)])
+    return out
 
 def first_nonzero(a):
     for n,l in enumerate(a):
@@ -94,7 +90,7 @@ def get_screens(file='data/wells_M_z_known.ipf'):
         np.fill_diagonal(fg, False)
         # merge overlapping layers into groups: a single well may have layers
         # that overlap at different depths, not just one.
-        i = dfs(fg)
+        i = dfs_array(fg)
 
         xy = [dfc.iloc[0,0], dfc.iloc[0,1]]
         joint = list(set([m for ix in i for m in ix[1]]))
@@ -121,7 +117,15 @@ def get_screens(file='data/wells_M_z_known.ipf'):
 
 def get_bores(file='data/Imod Jakarta/Boreholes_Jakarta.ipf', soilmap=None):
     # read data
-    df = pd.read_csv(file, delimiter=',', skiprows=10, header=0, names=['x','y','path','name'], usecols=[0,1,2,5]).set_index('name')
+    df = pd.read_csv(
+        file,
+        delimiter=',',
+        skiprows=10,
+        header=0,
+        names=['x','y','path','name'],
+        usecols=[0,1,2,5]
+    ).set_index('name')
+
     data_path = os.path.dirname(file)
 
     layers = []
@@ -146,21 +150,19 @@ def get_bores(file='data/Imod Jakarta/Boreholes_Jakarta.ipf', soilmap=None):
     pg = points.groupby([points.index, points.lay])
     points['z'] = pg.top.transform(lambda x: x.mean())
     points['r'] = pg.dep.transform(lambda x: 0.5*np.abs(x.sum()))
-    print('points:')
-    print(points.head())
     points.dropna(inplace=True)
     points = points.groupby([points.index, points.lay])['x','y','z','r'].first()
 
-    return df, points
+    return points
 
-def get_groupies(dfp, grad=1.0, f=2):
-    p = dfp.copy()
-    xy = p[['x','y']]
-    z = p.z.values
-    r = p.r.values
+def get_groupies(dfp, grad=1.0):
+    xy = dfp[['x','y']].values
+    z = dfp.z.values
+    r = dfp.rh.values
 
     # xy distance
-    dxy = cdist(xy.values, xy.values)
+    dxy = cdist(xy, xy)
+    #print(np.mean(dxy, axis=-1))
     # z difference
     dz = np.subtract.outer(z, z.T)
     # sum of radii
@@ -169,13 +171,38 @@ def get_groupies(dfp, grad=1.0, f=2):
     gxyz = dz/dxy
     # point pairs for which gradient less than max specified and distance less
     # than sum of radii times some multiple
-    d = (np.abs(gxyz) < grad)*(dxy < f*sr)
+    d = (np.abs(gxyz) < grad)*(dxy < sr)
     np.fill_diagonal(d, False)
 
     print('dfs')
     # dfs to find connected wells
-    df = dfs(d)
-    return df
+    adj = dfs_array(d)
+    return adj
+
+def main(fbore='data/Imod Jakarta/Boreholes_Jakarta.ipf', fscreen='data/wells_M_z_known.ipf', config=None, log=None):
+    p = get_bores(file=fbore, soilmap=config.config['soil'])
+    sp = get_screens(file=fscreen)
+
+    # discard outliers
+    p.drop(p[p.r > (p.r.mean() + 2*p.r.std())].index, inplace=True)
+    sp.drop(sp[sp.r > (sp.r.mean() + 2*sp.r.std())].index, inplace=True)
+    log('Done\n')
+    # get buffered size of layers and join
+    p['rh'] = p.r*config.config['bore_buff']
+    sp['rh'] = sp.r*config.config['screen_buff']
+    pp = pd.concat((p, sp))
+    pp.sort_values(['x','y'], inplace=True)
+    log(pp.head().to_string())
+    log('\n')
+    log(pp.tail().to_string())
+
+    log('\nPre-processing...')
+    pp.drop(pp[pp.rh > 2000].index, inplace=True)
+    rh_min = 1.6*config.config['cellsize']
+    pp.loc[pp.rh < rh_min, 'rh'] = rh_min
+    adj = get_groupies(pp, grad=config.config['gradient'])
+    log('Done\n')
+    return pp, adj
 
 if __name__ == "__main__":
     data = getData(sys.argv[1])
