@@ -144,7 +144,6 @@ def get_bores(file='data/Imod Jakarta/Boreholes_Jakarta.ipf', soilmap=None):
     df['dep'] = dfg.top.transform(lambda x: x.diff())
     # concatenate adjacent layers of the same type
     df['lay'] = dfg.fer.transform(lambda x: (x.diff().abs() == 1).cumsum())
-    print(df.head())
     # get centers and radius of each layer
     points = df.loc[df.fer == 1, ['lay','x','y','top','dep']]
     pg = points.groupby([points.index, points.lay])
@@ -174,39 +173,49 @@ def get_groupies(dfp, grad=1.0):
     d = (np.abs(gxyz) < grad)*(dxy < sr)
     np.fill_diagonal(d, False)
 
-    print('dfs')
     # dfs to find connected wells
     adj = dfs_array(d)
     return adj
 
-def prep(fbore='data/Imod Jakarta/Boreholes_Jakarta.ipf', fscreen='data/wells_M_z_known.ipf', config=None, log=None):
+def prep(fbore='data/Imod Jakarta/Boreholes_Jakarta.ipf', fscreen='data/wells_M_z_known.ipf', config=None, log=lambda msg: sys.stdout.write(msg)):
+    # read files
+    log('Reading files... ')
     p = get_bores(file=fbore, soilmap=config.config['soil'])
     sp = get_screens(file=fscreen)
-
     # discard outliers
     p.drop(p[p.r > (p.r.mean() + 2*p.r.std())].index, inplace=True)
     sp.drop(sp[sp.r > (sp.r.mean() + 2*sp.r.std())].index, inplace=True)
-    if log: log('Done\n')
+    log('Done\n')
+
     # get buffered size of layers and join
     p['rh'] = p.r*config.config['bore_buff']
     sp['rh'] = sp.r*config.config['screen_buff']
     pp = pd.concat((p, sp))
     pp.sort_values(['x','y'], inplace=True)
-    if log:
-        log(pp.head().to_string())
-        log('\n')
-        log(pp.tail().to_string())
-        log('\nPre-processing... ')
+    log(pp.head().to_string())
+    log('\n')
+    log(pp.tail().to_string())
+    log('\nPre-processing... ')
     pp.drop(pp[pp.rh > 2000].index, inplace=True)
     rh_min = 1.6*config.config['cellsize']
     pp.loc[pp.rh < rh_min, 'rh'] = rh_min
     adj = get_groupies(pp, grad=config.config['gradient'])
-    if log: log('Done\n')
+    log('Done\n')
     return pp, adj
 
 if __name__ == "__main__":
-    data = getData(sys.argv[1])
-    top = getLayers(data)
-    # showScatterplot(data[:,0], data[:,1], data[:,2])
-    interpolasurface(top, sys.argv[2])
+    from interpolator import Interpolator
+    from writer import Writer
+    import config
+
+    config.parse()
+    if len(sys.argv) > 1:
+        df, adj = prep(fbore=sys.argv[1], fscreen=sys.argv[2], config=config)
+        w = Writer(sys.argv[3])
+        i = Interpolator(df, adj, w)
+        i.interpolate()
+    else:
+        df, adj = prep(config=config)
+        i = Interpolator(df, adj)
+        i.interpolate()
 

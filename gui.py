@@ -17,11 +17,11 @@ class ProgramRunner(QThread):
         writer = Writer(str(self.text_output))
 
         try:
-            log('Reading files... ')
-
+            log('Reading config... ')
             config.parse()
             if config.config['gradient'] > 1:
                 raise ValueError('Maximum gradient is 1')
+            log('Done\n')
 
             p, adj = slurp.prep(
                 fbore=str(self.text_input),
