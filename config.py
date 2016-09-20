@@ -1,4 +1,5 @@
 import ConfigParser
+from os import path
 
 config = {
     'buffersize': 10, # diameter/height
@@ -9,7 +10,8 @@ config = {
 
 def parse():
     parser = ConfigParser.RawConfigParser(allow_no_value=False)
-    with open('config.cfg', 'r') as f:
+    file = path.join(path.dirname(path.abspath(__file__)), 'config.cfg')
+    with open(file, 'r') as f:
         parser.readfp(f)
     for jenis in ['bore_buff', 'screen_buff', 'gradient', 'cellsize', 'nodata_value']:
         config[jenis] = parser.getfloat('config', jenis)

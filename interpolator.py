@@ -18,7 +18,8 @@ class Interpolator:
     def interpolate(self):
         idx_groupies = [idx for group in self.adj for idx in group[1]]
         idx_nongroup = list(set(range(0, len(self.p)))-set(idx_groupies))
-        nongroup = self.p.iloc[idx_nongroup]
+        nongroup = self.p
+        self.adj = []
         counter, total = 0, len(self.adj)+len(nongroup)
 
         for group in self.adj:
@@ -38,6 +39,7 @@ class Interpolator:
                 gridz = self.make_gridz(item, gridxy, gridx.shape)
                 surface_top[:] = np.nanmax([surface_top, item['z']+gridz], axis=0)
                 surface_bottom[:] = np.nanmin([surface_bottom, item['z']-gridz], axis=0)
+                self.log('.')
 
             # interpolation
             surface_top[surface_top!=surface_top] = -999999

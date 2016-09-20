@@ -146,8 +146,9 @@ def get_bores(file='data/Imod Jakarta/Boreholes_Jakarta.ipf', soilmap=None):
     df['lay'] = dfg.fer.transform(lambda x: (x.diff().abs() == 1).cumsum())
     # get centers and radius of each layer
     points = df.loc[df.fer == 1, ['lay','x','y','top','dep']]
+    points['z'] = points.top + 0.5*points.dep
     pg = points.groupby([points.index, points.lay])
-    points['z'] = pg.top.transform(lambda x: x.mean())
+    points['z'] = pg.z.transform(lambda x: x.mean())
     points['r'] = pg.dep.transform(lambda x: 0.5*np.abs(x.sum()))
     points.dropna(inplace=True)
     points = points.groupby([points.index, points.lay])['x','y','z','r'].first()
@@ -183,8 +184,8 @@ def prep(fbore='data/Imod Jakarta/Boreholes_Jakarta.ipf', fscreen='data/wells_M_
     p = get_bores(file=fbore, soilmap=config.config['soil'])
     sp = get_screens(file=fscreen)
     # discard outliers
-    p.drop(p[p.r > (p.r.mean() + 2*p.r.std())].index, inplace=True)
-    sp.drop(sp[sp.r > (sp.r.mean() + 2*sp.r.std())].index, inplace=True)
+    #p.drop(p[p.r > (p.r.mean() + 2*p.r.std())].index, inplace=True)
+    #sp.drop(sp[sp.r > (sp.r.mean() + 2*sp.r.std())].index, inplace=True)
     log('Done\n')
 
     # get buffered size of layers and join
@@ -192,11 +193,11 @@ def prep(fbore='data/Imod Jakarta/Boreholes_Jakarta.ipf', fscreen='data/wells_M_
     sp['rh'] = sp.r*config.config['screen_buff']
     pp = pd.concat((p, sp))
     pp.sort_values(['x','y'], inplace=True)
-    log(pp.head().to_string())
-    log('\n')
-    log(pp.tail().to_string())
+    # log(pp.head().to_string())
+    # log('\n')
+    # log(pp.tail().to_string())
     log('\nPre-processing... ')
-    pp.drop(pp[pp.rh > 2000].index, inplace=True)
+    #pp.drop(pp[pp.rh > 2000].index, inplace=True)
     rh_min = 1.6*config.config['cellsize']
     pp.loc[pp.rh < rh_min, 'rh'] = rh_min
     adj = get_groupies(pp, grad=config.config['gradient'])
