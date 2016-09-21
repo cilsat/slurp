@@ -102,5 +102,35 @@ def main():
     form.show()
     app.exec_()
 
+def test():
+    log = lambda message: sys.stdout.write(message)
+    writer = Writer('D:/exe/imod/IMOD_USER/pusair-output')
+
+    try:
+        log('Reading config... ')
+        config.parse()
+        if config.config['gradient'] > 1:
+            raise ValueError('Maximum gradient is 1')
+        log('Done\n')
+
+        p, adj = slurp.prep(
+            fbore=str('D:/exe/imod/IMOD_USER/pusair-input/Boreholes_Dimas.ipf'),
+            fscreen=str('data/well_M_z_dimas.ipf'),
+            config=config,
+            log=log)
+
+        interpolator = Interpolator(p, adj, writer, log)
+        interpolator.interpolate()
+
+        log('\n[DONE]')
+    except Exception as e:
+        log('\n\n[ERROR] {}'.format(e))
+        traceback.print_exc()
+
+    writer.reset()
+
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == 'test':
+        test()
+    else:
+        main()

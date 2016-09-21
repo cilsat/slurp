@@ -120,7 +120,7 @@ def get_bores(file='data/Imod Jakarta/Boreholes_Jakarta.ipf', soilmap=None):
     df = pd.read_csv(
         file,
         delimiter=',',
-        skiprows=10,
+        skiprows=9,
         header=0,
         names=['x','y','path','name'],
         usecols=[0,1,2,5]
@@ -141,15 +141,14 @@ def get_bores(file='data/Imod Jakarta/Boreholes_Jakarta.ipf', soilmap=None):
     df['fer'] = (df.soil.map(soilmap) == 'fer').astype(np.int8)
     # get depth for all aquafer layers
     dfg = df.groupby(df.index)
-    df['dep'] = dfg.top.transform(lambda x: x.diff())
+    df['dep'] = dfg.top.transform(lambda x: x.diff(-1))
     # concatenate adjacent layers of the same type
     df['lay'] = dfg.fer.transform(lambda x: (x.diff().abs() == 1).cumsum())
     # get centers and radius of each layer
     points = df.loc[df.fer == 1, ['lay','x','y','top','dep']]
-    points['z'] = points.top + 0.5*points.dep
-    pg = points.groupby([points.index, points.lay])
-    points['z'] = pg.z.transform(lambda x: x.mean())
-    points['r'] = pg.dep.transform(lambda x: 0.5*np.abs(x.sum()))
+    # print points
+    points['r'] = points.groupby([points.index, points.lay]).dep.transform(lambda x: 0.5*np.abs(x.sum()))
+    points['z'] = points.top - points.r
     points.dropna(inplace=True)
     points = points.groupby([points.index, points.lay])['x','y','z','r'].first()
 
@@ -196,7 +195,7 @@ def prep(fbore='data/Imod Jakarta/Boreholes_Jakarta.ipf', fscreen='data/wells_M_
     # log(pp.head().to_string())
     # log('\n')
     # log(pp.tail().to_string())
-    log('\nPre-processing... ')
+    log('Pre-processing... ')
     #pp.drop(pp[pp.rh > 2000].index, inplace=True)
     rh_min = 1.6*config.config['cellsize']
     pp.loc[pp.rh < rh_min, 'rh'] = rh_min

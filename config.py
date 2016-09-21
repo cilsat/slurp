@@ -10,7 +10,7 @@ config = {
 
 def parse():
     parser = ConfigParser.RawConfigParser(allow_no_value=False)
-    file = path.join(path.dirname(path.abspath(__file__)), 'config.cfg')
+    file = path.join(path.dirname(path.abspath(__file__)), '..', 'config.txt')
     with open(file, 'r') as f:
         parser.readfp(f)
     for jenis in ['bore_buff', 'screen_buff', 'gradient', 'cellsize', 'nodata_value']:

@@ -19,7 +19,6 @@ class Interpolator:
         idx_groupies = [idx for group in self.adj for idx in group[1]]
         idx_nongroup = list(set(range(0, len(self.p)))-set(idx_groupies))
         nongroup = self.p
-        self.adj = []
         counter, total = 0, len(self.adj)+len(nongroup)
 
         for group in self.adj:
@@ -126,20 +125,20 @@ class Interpolator:
         right = np.roll(mean, -1, axis=1)
         top = np.roll(mean, 1, axis=0)
         bottom = np.roll(mean, -1, axis=0)
-        topleft = np.roll(top, 1, axis=1)
-        topright = np.roll(top, -1, axis=1)
-        bottomleft = np.roll(bottom, 1, axis=1)
-        bottomright = np.roll(bottom, -1, axis=1)
+        # topleft = np.roll(top, 1, axis=1)
+        # topright = np.roll(top, -1, axis=1)
+        # bottomleft = np.roll(bottom, 1, axis=1)
+        # bottomright = np.roll(bottom, -1, axis=1)
 
         nonnans = mean==mean
         for neighbor in [left, right, top, bottom]:
             select = nonnans*(neighbor!=neighbor)
             surface_top[select] = mean[select]
             surface_bottom[select] = mean[select]
-        for neighbor in [topleft, topright, bottomleft, bottomright]:
-            select = nonnans*(neighbor!=neighbor)
-            surface_top[select] = mean[select]
-            surface_bottom[select] = mean[select]
+        # for neighbor in [topleft, topright, bottomleft, bottomright]:
+        #     select = nonnans*(neighbor!=neighbor)
+        #     surface_top[select] = mean[select]
+        #     surface_bottom[select] = mean[select]
 
 def test():
     import sys
