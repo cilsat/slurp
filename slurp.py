@@ -196,7 +196,8 @@ def prep(fbore='data/Imod Jakarta/Boreholes_Jakarta.ipf', fscreen='data/wells_M_
     # log('\n')
     # log(pp.tail().to_string())
     log('Pre-processing... ')
-    #pp.drop(pp[pp.rh > 2000].index, inplace=True)
+    pp.drop(pp[pp.r < config.config['min_height']].index, inplace=True)
+    pp.drop(pp[pp.r > config.config['max_height']].index, inplace=True)
     rh_min = 1.6*config.config['cellsize']
     pp.loc[pp.rh < rh_min, 'rh'] = rh_min
     adj = get_groupies(pp, grad=config.config['gradient'])

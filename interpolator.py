@@ -21,6 +21,26 @@ class Interpolator:
         nongroup = self.p
         counter, total = 0, len(self.adj)+len(nongroup)
 
+        for i in range(0, len(nongroup)):
+            counter += 1
+            self.log('Processing {} of {}...'.format(counter, total))
+
+            item = nongroup.iloc[i]
+            xmin = xmax = item['x']
+            ymin = ymax = item['y']
+            gutter = np.ceil(item['rh']+(2*config['cellsize']))
+            ncols, nrows, xllcorner, yllcorner, gridx, gridy, gridxy = self.make_params(xmin, xmax, ymin, ymax, gutter)
+            gridz = self.make_gridz(item, gridxy, gridx.shape)
+
+            surface_top = item['z']+gridz
+            surface_bottom = item['z']-gridz
+
+            self.smoothing(surface_top, surface_bottom)
+            self.writer.write(ncols, nrows, xllcorner, yllcorner,
+                              {'top':surface_top, 'bottom':surface_bottom})
+
+            self.log(' Done\n')
+
         for group in self.adj:
             counter += 1
             self.log('Processing {} of {}...'.format(counter, total))
@@ -72,26 +92,6 @@ class Interpolator:
                     qhul = 'error'
             surface_top[surface_top==-999999] = np.nan
             surface_bottom[surface_bottom==999999] = np.nan
-
-            self.smoothing(surface_top, surface_bottom)
-            self.writer.write(ncols, nrows, xllcorner, yllcorner,
-                              {'top':surface_top, 'bottom':surface_bottom})
-
-            self.log(' Done\n')
-
-        for i in range(0, len(nongroup)):
-            counter += 1
-            self.log('Processing {} of {}...'.format(counter, total))
-
-            item = nongroup.iloc[i]
-            xmin = xmax = item['x']
-            ymin = ymax = item['y']
-            gutter = np.ceil(item['rh']+(2*config['cellsize']))
-            ncols, nrows, xllcorner, yllcorner, gridx, gridy, gridxy = self.make_params(xmin, xmax, ymin, ymax, gutter)
-            gridz = self.make_gridz(item, gridxy, gridx.shape)
-
-            surface_top = item['z']+gridz
-            surface_bottom = item['z']-gridz
 
             self.smoothing(surface_top, surface_bottom)
             self.writer.write(ncols, nrows, xllcorner, yllcorner,

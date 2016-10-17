@@ -114,8 +114,9 @@ def test():
         log('Done\n')
 
         p, adj = slurp.prep(
-            fbore=str('D:/exe/imod/IMOD_USER/pusair-input/Boreholes_Dimas.ipf'),
-            fscreen=str('data/well_M_z_dimas.ipf'),
+            # fbore=str('D:/exe/imod/IMOD_USER/pusair-input/Boreholes_Dimas.ipf'),
+            fbore=str('D:/exe/imod/IMOD_USER/pusair-input/Boreholes_Jakarta.ipf'),
+            fscreen=str('data/well_M_z_all.ipf'),
             config=config,
             log=log)
 

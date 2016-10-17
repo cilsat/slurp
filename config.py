@@ -13,7 +13,7 @@ def parse():
     file = path.join(path.dirname(path.abspath(__file__)), '..', 'config.txt')
     with open(file, 'r') as f:
         parser.readfp(f)
-    for jenis in ['bore_buff', 'screen_buff', 'gradient', 'cellsize', 'nodata_value']:
+    for jenis in ['bore_buff', 'screen_buff', 'gradient', 'min_height', 'max_height', 'cellsize', 'nodata_value']:
         config[jenis] = parser.getfloat('config', jenis)
     config['soil'] = {}
     for soil in parser.get('config', 'fer').split(', '):
